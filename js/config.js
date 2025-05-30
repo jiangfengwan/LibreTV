@@ -114,55 +114,48 @@ const API_SITES = {
         name: '空内容测试源',
         adult: true
     },
-    // 下面是一些成人内容的API源，默认隐藏，使用本项目浏览黄色内容违背项目初衷
-    // 互联网上传播的色情内容将人彻底客体化、工具化，是性别解放和人类平等道路上的巨大障碍。
-    // 这些黄色影片是资本主义父权制压迫的最恶毒体现，它将暴力和屈辱商品化，践踏人的尊严，对受害者造成无法弥愈的伤害，并毒害社会关系。
-    // 资本为了利润，不惜将最卑劣的剥削（包括对受害者和表演者的剥削）和暴力商品化，
-    // 把性别剥削塑造成“性享受”麻痹观众的意识，转移我们对现实生活中矛盾和压迫的注意力。
-    // 这些影片和背后的产业已经使数百万男女“下海”，出卖自己的身体，甚至以此为生计。
-    // 而作为观众无辜吗？毫无疑问，他们促成了黄色产业链的再生产。
-    // 我们提供此警告，是希望您能认清这些内容的本质——它们是压迫和奴役的工具，而非娱乐。
-    // ckzy: {
-    //     api: 'https://www.ckzy1.com',
-    //     name: 'CK资源',
-    //     adult: true
-    // },
-    // jkun: {
-    //     api: 'https://jkunzyapi.com',
-    //     name: 'jkun资源',
-    //     adult: true
-    // },
-    // bwzy: {
-    //     api: 'https://api.bwzym3u8.com',
-    //     name: '百万资源',
-    //     adult: true
-    // },
-    // souav: {
-    //     api: 'https://api.souavzy.vip',
-    //     name: 'souav资源',
-    //     adult: true
-    // },
-    // r155: {
-    //     api: 'https://155api.com',
-    //     name: '155资源',
-    //     adult: true
-    // },
-    // lsb: {
-    //     api: 'https://apilsbzy1.com',
-    //     name: 'lsb资源',
-    //     adult: true
-    // },
-    // huangcang: {
-    //     api: 'https://hsckzy.vip',
-    //     name: '黄色仓库',
-    //     adult: true,
-    //     detail: 'https://hsckzy.vip'
-    // },
-    // yutu: {
-    //     api: 'https://yutuzy10.com',
-    //     name: '玉兔资源',
-    //     adult: true
-    // },
+    
+     ckzy: {
+         api: 'https://www.ckzy1.com',
+         name: 'CK资源',
+         adult: true
+     },
+     jkun: {
+         api: 'https://jkunzyapi.com',
+         name: 'jkun资源',
+         adult: true
+     },
+     bwzy: {
+         api: 'https://api.bwzym3u8.com',
+         name: '百万资源',
+         adult: true
+     },
+     souav: {
+         api: 'https://api.souavzy.vip',
+         name: 'souav资源',
+         adult: true
+     },
+     r155: {
+         api: 'https://155api.com',
+         name: '155资源',
+         adult: true
+     },
+     lsb: {
+         api: 'https://apilsbzy1.com',
+         name: 'lsb资源',
+         adult: true
+     },
+     huangcang: {
+         api: 'https://hsckzy.vip',
+         name: '黄色仓库',
+         adult: true,
+         detail: 'https://hsckzy.vip'
+     },
+     yutu: {
+         api: 'https://yutuzy10.com',
+         name: '玉兔资源',
+         adult: true
+     },
 
     // 下面是资源失效率高的API源，不建议使用
     // subo: {
@@ -179,84 +172,268 @@ const API_SITES = {
     // },
 };
 
-// 添加聚合搜索的配置选项
+// 参考 Cloudflare Worker 的简化搜索配置
+
+// 1. 简化的聚合搜索配置
 const AGGREGATED_SEARCH_CONFIG = {
-    enabled: true,             // 是否启用聚合搜索
-    timeout: 8000,            // 单个源超时时间（毫秒）
-    maxResults: 10000,          // 最大结果数量
-    parallelRequests: true,   // 是否并行请求所有源
-    showSourceBadges: true    // 是否显示来源徽章
+    enabled: true,
+    timeout: 8000,
+    maxResults: 100,
+    showSourceBadges: true
 };
 
-// 抽象API请求配置
-const API_CONFIG = {
-    search: {
-        // 只拼接参数部分，不再包含 /api.php/provide/vod/
-        path: '?ac=videolist&wd=',
-        pagePath: '?ac=videolist&wd={query}&pg={page}',
-        maxPages: 50, // 最大获取页数
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'Accept': 'application/json'
-        }
-    },
-    detail: {
-        // 只拼接参数部分
-        path: '?ac=videolist&ids=',
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-            'Accept': 'application/json'
-        }
-    }
+// 3. 统一的请求头配置
+const REQUEST_HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'Referer': 'https://www.baidu.com/',
+    'Accept': 'application/json'
 };
 
-// 优化后的正则表达式模式
-const M3U8_PATTERN = /\$https?:\/\/[^"'\s]+?\.m3u8/g;
-
-// 添加自定义播放器URL
-const CUSTOM_PLAYER_URL = 'player.html'; // 使用相对路径引用本地player.html
-
-// 增加视频播放相关配置
+// 4. 简化的播放器配置
 const PLAYER_CONFIG = {
+    url: 'https://hoplayer.com/index.html',  // 使用外部播放器URL
     autoplay: true,
-    allowFullscreen: true,
     width: '100%',
-    height: '600',
-    timeout: 15000,  // 播放器加载超时时间
-    filterAds: true,  // 是否启用广告过滤
-    autoPlayNext: true,  // 默认启用自动连播功能
-    adFilteringEnabled: true, // 默认开启分片广告过滤
-    adFilteringStorage: 'adFilteringEnabled' // 存储广告过滤设置的键名
+    height: '600'
 };
 
-// 增加错误信息本地化
+// 5. 简化的错误消息
 const ERROR_MESSAGES = {
-    NETWORK_ERROR: '网络连接错误，请检查网络设置',
-    TIMEOUT_ERROR: '请求超时，服务器响应时间过长',
-    API_ERROR: 'API接口返回错误，请尝试更换数据源',
-    PLAYER_ERROR: '播放器加载失败，请尝试其他视频源',
-    UNKNOWN_ERROR: '发生未知错误，请刷新页面重试'
+    NO_KEYWORD: '请输入搜索关键词',
+    NO_RESULTS: '未找到相关视频',
+    SEARCH_FAILED: '搜索失败，请检查网络或更换视频源',
+    DETAIL_FAILED: '获取详情失败',
+    UNSUPPORTED_SOURCE: '不支持的视频源'
 };
 
-// 添加进一步安全设置
-const SECURITY_CONFIG = {
-    enableXSSProtection: true,  // 是否启用XSS保护
-    sanitizeUrls: true,         // 是否清理URL
-    maxQueryLength: 100,        // 最大搜索长度
-    // allowedApiDomains 不再需要，因为所有请求都通过内部代理
-};
+// 6. 简化的搜索处理函数（参考Worker逻辑）
+async function handleSearch(query, source = 'heimuer', customApi = null) {
+    if (!query || !query.trim()) {
+        return {
+            code: 400,
+            msg: ERROR_MESSAGES.NO_KEYWORD
+        };
+    }
 
-// 添加多个自定义API源的配置
+    // 确定API URL
+    let apiUrl;
+    if (source === 'custom' && customApi) {
+        apiUrl = customApi + (customApi.includes('?') ? '&' : '?') + 'ac=detail&wd=';
+    } else {
+        apiUrl = API_SITES[source];
+    }
+
+    if (!apiUrl) {
+        return {
+            code: 400,
+            msg: ERROR_MESSAGES.UNSUPPORTED_SOURCE
+        };
+    }
+
+    try {
+        // 发起搜索请求
+        const response = await fetch(apiUrl + encodeURIComponent(query), {
+            headers: REQUEST_HEADERS,
+            signal: AbortSignal.timeout(AGGREGATED_SEARCH_CONFIG.timeout)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (!data.list || !Array.isArray(data.list)) {
+            return {
+                code: 400,
+                msg: ERROR_MESSAGES.NO_RESULTS
+            };
+        }
+
+        // 简化结果处理
+        return {
+            code: 200,
+            msg: '搜索成功',
+            total: data.list.length,
+            list: data.list.slice(0, AGGREGATED_SEARCH_CONFIG.maxResults).map(item => ({
+                vod_id: item.vod_id,
+                vod_name: item.vod_name,
+                type_name: item.type_name || '未知类型',
+                vod_remarks: item.vod_remarks || '暂无备注',
+                vod_pic: item.vod_pic || '',
+                source: source  // 添加来源标识
+            }))
+        };
+
+    } catch (error) {
+        return {
+            code: 500,
+            msg: ERROR_MESSAGES.SEARCH_FAILED
+        };
+    }
+}
+
+// 7. 简化的详情处理函数
+async function handleDetail(id, source = 'heimuer', customApi = null) {
+    if (!id) {
+        return {
+            code: 400,
+            msg: '缺少视频ID'
+        };
+    }
+
+    // 确定详情API URL
+    let apiUrl;
+    if (source === 'custom' && customApi) {
+        apiUrl = customApi + (customApi.includes('?') ? '&' : '?') + 'ac=detail&ids=';
+    } else {
+        apiUrl = API_SITES.detail[source];
+    }
+
+    if (!apiUrl) {
+        return {
+            code: 400,
+            msg: ERROR_MESSAGES.UNSUPPORTED_SOURCE
+        };
+    }
+
+    try {
+        const response = await fetch(apiUrl + id, {
+            headers: REQUEST_HEADERS,
+            signal: AbortSignal.timeout(AGGREGATED_SEARCH_CONFIG.timeout)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (!data.list || !data.list[0]) {
+            return {
+                code: 400,
+                msg: ERROR_MESSAGES.NO_RESULTS
+            };
+        }
+
+        const video = data.list[0];
+        const playUrl = video.vod_play_url || '';
+        
+        // 简化播放链接解析（参考Worker逻辑）
+        const episodes = [];
+        if (playUrl) {
+            const urlParts = playUrl.split('$$$');
+            urlParts.forEach(part => {
+                const links = part.split('#');
+                links.forEach(link => {
+                    if (link && link.includes('$')) {
+                        const [name, url] = link.split('$');
+                        if (url) episodes.push({ name: name || '播放', url: url });
+                    }
+                });
+            });
+        }
+
+        return {
+            code: 200,
+            msg: '获取成功',
+            data: {
+                vod_id: video.vod_id,
+                vod_name: video.vod_name,
+                episodes: episodes
+            }
+        };
+
+    } catch (error) {
+        return {
+            code: 500,
+            msg: ERROR_MESSAGES.DETAIL_FAILED
+        };
+    }
+}
+
+// 8. 聚合搜索函数（简化版）
+async function aggregatedSearch(query, sources = ['heimuer', 'ffzy', 'sllzy']) {
+    if (!AGGREGATED_SEARCH_CONFIG.enabled) {
+        // 如果未启用聚合搜索，使用默认源
+        return await handleSearch(query, sources[0]);
+    }
+
+    const searchPromises = sources.map(source => 
+        handleSearch(query, source).catch(error => ({
+            code: 500,
+            msg: `${source}: ${error.message}`,
+            list: []
+        }))
+    );
+
+    try {
+        const results = await Promise.allSettled(searchPromises);
+        const allResults = [];
+        
+        results.forEach((result, index) => {
+            if (result.status === 'fulfilled' && result.value.code === 200) {
+                const sourceResults = result.value.list.map(item => ({
+                    ...item,
+                    source: sources[index]
+                }));
+                allResults.push(...sourceResults);
+            }
+        });
+
+        if (allResults.length === 0) {
+            return {
+                code: 400,
+                msg: ERROR_MESSAGES.NO_RESULTS
+            };
+        }
+
+        // 简单去重（基于视频名称）
+        const uniqueResults = allResults.filter((item, index, self) => 
+            index === self.findIndex(t => t.vod_name === item.vod_name)
+        );
+
+        return {
+            code: 200,
+            msg: `找到 ${uniqueResults.length} 个结果`,
+            total: uniqueResults.length,
+            list: uniqueResults.slice(0, AGGREGATED_SEARCH_CONFIG.maxResults)
+        };
+
+    } catch (error) {
+        return {
+            code: 500,
+            msg: ERROR_MESSAGES.SEARCH_FAILED
+        };
+    }
+}
+
+// 9. 自定义源配置（简化）
 const CUSTOM_API_CONFIG = {
-    separator: ',',           // 分隔符
-    maxSources: 5,            // 最大允许的自定义源数量
-    testTimeout: 5000,        // 测试超时时间(毫秒)
-    namePrefix: 'Custom-',    // 自定义源名称前缀
-    validateUrl: true,        // 验证URL格式
-    cacheResults: true,       // 缓存测试结果
-    cacheExpiry: 5184000000,  // 缓存过期时间(2个月)
-    adultPropName: 'isAdult' // 用于标记成人内容的属性名
+    maxSources: 5,
+    testTimeout: 5000,
+    separator: ','
 };
 
-// 隐藏内置黄色采集站API的变量
-const HIDE_BUILTIN_ADULT_APIS = false;
+// 10. 解析自定义API源
+function parseCustomAPIs(customApiString) {
+    if (!customApiString || !customApiString.trim()) {
+        return [];
+    }
+    
+    return customApiString
+        .split(CUSTOM_API_CONFIG.separator)
+        .map(url => url.trim())
+        .filter(url => url && isValidUrl(url))
+        .slice(0, CUSTOM_API_CONFIG.maxSources);
+}
+
+// 11. URL验证函数
+function isValidUrl(string) {
+    try {
+        const url = new URL(string);
+        return url.protocol === 'http:' || url.protocol === 'https:';
+    } catch (_) {
+        return false;
+    }
+}
