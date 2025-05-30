@@ -172,342 +172,82 @@ const API_SITES = {
     // },
 };
 
-// 修复后的搜索配置代码（适用于 Cloudflare Pages）
-
-// 1. 简化的聚合搜索配置
+// 添加聚合搜索的配置选项
 const AGGREGATED_SEARCH_CONFIG = {
-    enabled: true,
-    timeout: 8000,
-    maxResults: 100,
-    showSourceBadges: true
+    enabled: true,             // 是否启用聚合搜索
+    timeout: 8000,            // 单个源超时时间（毫秒）
+    maxResults: 10000,          // 最大结果数量
+    parallelRequests: true,   // 是否并行请求所有源
+    showSourceBadges: true    // 是否显示来源徽章
 };
 
-// 2. API站点配置 - 修复CORS问题，需要通过代理
-const API_SITES = {
-    heimuer: 'https://json.heimuer.xyz/api.php/provide/vod/',
-    ffzy: 'http://cj.ffzyapi.com/api.php/provide/vod/',
-    sllzy: 'https://api.sllzy.com/api.php/provide/vod/'
+// 抽象API请求配置 - 修复索引逻辑适配Worker
+const API_CONFIG = {
+    search: {
+        // 修改为Worker兼容的参数
+        path: '?ac=detail&wd=',
+        pagePath: '?ac=detail&wd={query}&pg={page}',
+        maxPages: 50, // 最大获取页数
+        headers: {
+            'Accept': 'application/json'
+        }
+    },
+    detail: {
+        // 修改为Worker兼容的参数
+        path: '?ac=detail&ids=',
+        headers: {
+            'Accept': 'application/json'
+        }
+    }
 };
 
-// 3. 请求头配置 - 简化以避免CORS问题
-const REQUEST_HEADERS = {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json'
-};
+// 优化后的正则表达式模式
+const M3U8_PATTERN = /\$https?:\/\/[^"'\s]+?\.m3u8/g;
 
-// 4. 播放器配置
+// 添加自定义播放器URL
+const CUSTOM_PLAYER_URL = 'player.html'; // 使用相对路径引用本地player.html
+
+// 增加视频播放相关配置
 const PLAYER_CONFIG = {
-    url: 'https://hoplayer.com/index.html',
     autoplay: true,
+    allowFullscreen: true,
     width: '100%',
-    height: '600'
+    height: '600',
+    timeout: 15000,  // 播放器加载超时时间
+    filterAds: true,  // 是否启用广告过滤
+    autoPlayNext: true,  // 默认启用自动连播功能
+    adFilteringEnabled: true, // 默认开启分片广告过滤
+    adFilteringStorage: 'adFilteringEnabled' // 存储广告过滤设置的键名
 };
 
-// 5. 错误消息
+// 增加错误信息本地化
 const ERROR_MESSAGES = {
-    NO_KEYWORD: '请输入搜索关键词',
-    NO_RESULTS: '未找到相关视频',
-    SEARCH_FAILED: '搜索失败，请检查网络或更换视频源',
-    DETAIL_FAILED: '获取详情失败',
-    UNSUPPORTED_SOURCE: '不支持的视频源',
-    CORS_ERROR: 'CORS错误，请使用代理服务器'
+    NETWORK_ERROR: '网络连接错误，请检查网络设置',
+    TIMEOUT_ERROR: '请求超时，服务器响应时间过长',
+    API_ERROR: 'API接口返回错误，请尝试更换数据源',
+    PLAYER_ERROR: '播放器加载失败，请尝试其他视频源',
+    UNKNOWN_ERROR: '发生未知错误，请刷新页面重试'
 };
 
-// 6. 修复后的搜索处理函数 - 使用代理或直接调用（需要后端支持）
-async function handleSearch(query, source = 'heimuer', customApi = null) {
-    if (!query || !query.trim()) {
-        return {
-            code: 400,
-            msg: ERROR_MESSAGES.NO_KEYWORD
-        };
-    }
+// 添加进一步安全设置
+const SECURITY_CONFIG = {
+    enableXSSProtection: true,  // 是否启用XSS保护
+    sanitizeUrls: true,         // 是否清理URL
+    maxQueryLength: 100,        // 最大搜索长度
+    // allowedApiDomains 不再需要，因为所有请求都通过内部代理
+};
 
-    // 构建搜索参数
-    const searchParams = new URLSearchParams({
-        ac: 'detail',
-        wd: query
-    });
-
-    let apiUrl;
-    if (source === 'custom' && customApi) {
-        // 自定义API需要确保格式正确
-        apiUrl = customApi.endsWith('/') ? customApi : customApi + '/';
-        apiUrl += '?' + searchParams.toString();
-    } else {
-        const baseUrl = API_SITES[source];
-        if (!baseUrl) {
-            return {
-                code: 400,
-                msg: ERROR_MESSAGES.UNSUPPORTED_SOURCE
-            };
-        }
-        apiUrl = baseUrl + '?' + searchParams.toString();
-    }
-
-    try {
-        // 使用简化的fetch请求，移除可能导致问题的选项
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), AGGREGATED_SEARCH_CONFIG.timeout);
-
-        const response = await fetch(apiUrl, {
-            method: 'GET',
-            headers: REQUEST_HEADERS,
-            signal: controller.signal,
-            mode: 'cors'  // 明确指定CORS模式
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        
-        if (!data.list || !Array.isArray(data.list)) {
-            return {
-                code: 400,
-                msg: ERROR_MESSAGES.NO_RESULTS
-            };
-        }
-
-        // 处理结果
-        return {
-            code: 200,
-            msg: '搜索成功',
-            total: data.list.length,
-            list: data.list.slice(0, AGGREGATED_SEARCH_CONFIG.maxResults).map(item => ({
-                vod_id: item.vod_id,
-                vod_name: item.vod_name || '未知标题',
-                type_name: item.type_name || '未知类型',
-                vod_remarks: item.vod_remarks || '暂无备注',
-                vod_pic: item.vod_pic || '',
-                source: source
-            }))
-        };
-
-    } catch (error) {
-        // 详细的错误处理
-        if (error.name === 'AbortError') {
-            return {
-                code: 408,
-                msg: '请求超时'
-            };
-        }
-        
-        if (error.message.includes('CORS')) {
-            return {
-                code: 500,
-                msg: ERROR_MESSAGES.CORS_ERROR
-            };
-        }
-
-        return {
-            code: 500,
-            msg: ERROR_MESSAGES.SEARCH_FAILED + ': ' + error.message
-        };
-    }
-}
-
-// 7. 修复后的详情处理函数
-async function handleDetail(id, source = 'heimuer', customApi = null) {
-    if (!id) {
-        return {
-            code: 400,
-            msg: '缺少视频ID'
-        };
-    }
-
-    // 构建详情参数
-    const detailParams = new URLSearchParams({
-        ac: 'detail',
-        ids: id
-    });
-
-    let apiUrl;
-    if (source === 'custom' && customApi) {
-        apiUrl = customApi.endsWith('/') ? customApi : customApi + '/';
-        apiUrl += '?' + detailParams.toString();
-    } else {
-        const baseUrl = API_SITES[source];
-        if (!baseUrl) {
-            return {
-                code: 400,
-                msg: ERROR_MESSAGES.UNSUPPORTED_SOURCE
-            };
-        }
-        apiUrl = baseUrl + '?' + detailParams.toString();
-    }
-
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), AGGREGATED_SEARCH_CONFIG.timeout);
-
-        const response = await fetch(apiUrl, {
-            method: 'GET',
-            headers: REQUEST_HEADERS,
-            signal: controller.signal,
-            mode: 'cors'
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        
-        if (!data.list || !data.list[0]) {
-            return {
-                code: 400,
-                msg: ERROR_MESSAGES.NO_RESULTS
-            };
-        }
-
-        const video = data.list[0];
-        const playUrl = video.vod_play_url || '';
-        
-        // 解析播放链接
-        const episodes = [];
-        if (playUrl) {
-            try {
-                const urlParts = playUrl.split('$$$');
-                urlParts.forEach(part => {
-                    const links = part.split('#');
-                    links.forEach(link => {
-                        if (link && link.includes('$')) {
-                            const [name, url] = link.split('$');
-                            if (url && url.trim()) {
-                                episodes.push({ 
-                                    name: name || '播放', 
-                                    url: url.trim() 
-                                });
-                            }
-                        }
-                    });
-                });
-            } catch (parseError) {
-                console.warn('播放链接解析错误:', parseError);
-            }
-        }
-
-        return {
-            code: 200,
-            msg: '获取成功',
-            data: {
-                vod_id: video.vod_id,
-                vod_name: video.vod_name,
-                episodes: episodes
-            }
-        };
-
-    } catch (error) {
-        if (error.name === 'AbortError') {
-            return {
-                code: 408,
-                msg: '请求超时'
-            };
-        }
-
-        return {
-            code: 500,
-            msg: ERROR_MESSAGES.DETAIL_FAILED + ': ' + error.message
-        };
-    }
-}
-
-// 8. 聚合搜索函数 - 添加错误恢复机制
-async function aggregatedSearch(query, sources = ['heimuer', 'ffzy', 'sllzy']) {
-    if (!AGGREGATED_SEARCH_CONFIG.enabled) {
-        return await handleSearch(query, sources[0]);
-    }
-
-    const allResults = [];
-    const errors = [];
-
-    // 顺序执行以避免同时发起过多请求
-    for (const source of sources) {
-        try {
-            const result = await handleSearch(query, source);
-            if (result.code === 200 && result.list && result.list.length > 0) {
-                const sourceResults = result.list.map(item => ({
-                    ...item,
-                    source: source
-                }));
-                allResults.push(...sourceResults);
-            }
-        } catch (error) {
-            errors.push(`${source}: ${error.message}`);
-        }
-    }
-
-    if (allResults.length === 0) {
-        return {
-            code: 400,
-            msg: ERROR_MESSAGES.NO_RESULTS + (errors.length > 0 ? ' (' + errors.join(', ') + ')' : '')
-        };
-    }
-
-    // 去重
-    const uniqueResults = allResults.filter((item, index, self) => 
-        index === self.findIndex(t => t.vod_name === item.vod_name)
-    );
-
-    return {
-        code: 200,
-        msg: `找到 ${uniqueResults.length} 个结果`,
-        total: uniqueResults.length,
-        list: uniqueResults.slice(0, AGGREGATED_SEARCH_CONFIG.maxResults)
-    };
-}
-
-// 9. 自定义源配置
+// 添加多个自定义API源的配置
 const CUSTOM_API_CONFIG = {
-    maxSources: 5,
-    testTimeout: 5000,
-    separator: ','
+    separator: ',',           // 分隔符
+    maxSources: 5,            // 最大允许的自定义源数量
+    testTimeout: 5000,        // 测试超时时间(毫秒)
+    namePrefix: 'Custom-',    // 自定义源名称前缀
+    validateUrl: true,        // 验证URL格式
+    cacheResults: true,       // 缓存测试结果
+    cacheExpiry: 5184000000,  // 缓存过期时间(2个月)
+    adultPropName: 'isAdult' // 用于标记成人内容的属性名
 };
 
-// 10. 解析自定义API源
-function parseCustomAPIs(customApiString) {
-    if (!customApiString || !customApiString.trim()) {
-        return [];
-    }
-    
-    return customApiString
-        .split(CUSTOM_API_CONFIG.separator)
-        .map(url => url.trim())
-        .filter(url => url && isValidUrl(url))
-        .slice(0, CUSTOM_API_CONFIG.maxSources);
-}
-
-// 11. URL验证函数
-function isValidUrl(string) {
-    try {
-        const url = new URL(string);
-        return url.protocol === 'http:' || url.protocol === 'https:';
-    } catch (_) {
-        return false;
-    }
-}
-
-// 12. 测试API连接性的函数
-async function testApiConnection(apiUrl) {
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), CUSTOM_API_CONFIG.testTimeout);
-        
-        const response = await fetch(apiUrl + '?ac=detail&wd=test', {
-            method: 'GET',
-            headers: REQUEST_HEADERS,
-            signal: controller.signal,
-            mode: 'cors'
-        });
-        
-        clearTimeout(timeoutId);
-        return response.ok;
-    } catch (error) {
-        return false;
-    }
-}
+// 隐藏内置黄色采集站API的变量
+const HIDE_BUILTIN_ADULT_APIS = false;
