@@ -139,12 +139,12 @@ const API_SITES = {
      //    api: 'https://155api.com',
      //    name: '155资源',
      //    adult: true
-     },
+     //},
      //lsb: {
      //    api: 'https://apilsbzy1.com',
      //    name: 'lsb资源',
      //    adult: true
-     },
+    // },
      huangcang: {
          api: ' https://jx.bfhsck.com/m3u8',
          name: '黄色仓库',
