@@ -181,21 +181,23 @@ const AGGREGATED_SEARCH_CONFIG = {
     showSourceBadges: true    // 是否显示来源徽章
 };
 
-// 抽象API请求配置 - 修复索引逻辑适配Worker
+// 抽象API请求配置
 const API_CONFIG = {
     search: {
-        // 修改为Worker兼容的参数
-        path: '?ac=detail&wd=',
-        pagePath: '?ac=detail&wd={query}&pg={page}',
+        // 只拼接参数部分，不再包含 /api.php/provide/vod/
+        path: '?ac=videolist&wd=',
+        pagePath: '?ac=videolist&wd={query}&pg={page}',
         maxPages: 50, // 最大获取页数
         headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             'Accept': 'application/json'
         }
     },
     detail: {
-        // 修改为Worker兼容的参数
-        path: '?ac=detail&ids=',
+        // 只拼接参数部分
+        path: '?ac=videolist&ids=',
         headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             'Accept': 'application/json'
         }
     }
